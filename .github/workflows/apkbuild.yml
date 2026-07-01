@@ -36,18 +36,17 @@ jobs:
           cmake --version || true
           java -version || true
           echo "NDK path: ${{ steps.setup-ndk.outputs.ndk-path }}"
-      
+
       - name: Force ABI to arm64-v8a (temporary edit)
         shell: bash
         run: |
           set -e
-          BUILD_GRADLE="android/app/build.gradle"
+          BUILD_GRADLE="build/android/app/build.gradle"
           if [ -f "$BUILD_GRADLE" ]; then
             echo "Original abiFilters lines (for context):"
             grep -n "abiFilters" "$BUILD_GRADLE" || true
 
-            # Replace common formats: both single and double quotes, with or without spaces.
-            # This keeps only arm64-v8a in the abiFilters to produce an arm64-only APK.
+            # Replace common formats so only arm64-v8a is kept.
             perl -0777 -pe "s/abiFilters\s*\(([^)]*)\)/abiFilters 'arm64-v8a'/g" -i "$BUILD_GRADLE" || true
             perl -0777 -pe "s/abiFilters\s+['\"][^'\"]+['\"][^\\n]*/abiFilters 'arm64-v8a'/g" -i "$BUILD_GRADLE" || true
 
@@ -63,15 +62,16 @@ jobs:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
           set -e
-          cd android
+          cd build/android
           chmod +x gradlew
-          # If your build.gradle already sets DBUILD_PRO=On, Gradle/CMake will pick it up.
+          # Gradle will use the CMake/externalNativeBuild settings present in your project,
+          # including any DBUILD_PRO=On you already configured in Gradle/CMake.
           ./gradlew clean assembleRelease --no-daemon
 
       - name: Collect APK
         run: |
           mkdir -p out
-          cp android/app/build/outputs/apk/release/app-release.apk out/tic80-android-pro-arm64.apk
+          cp build/android/app/build/outputs/apk/release/app-release.apk out/tic80-android-pro-arm64.apk
           ls -l out || true
 
       - name: Upload PRO APK artifact
